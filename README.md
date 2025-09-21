@@ -58,9 +58,28 @@ model.train(trainer=CustomTrainer, data="coco8.yaml", epochs=3, focal_gamma=1.5,
 ## ⚙️ How it works
 
 * `CustomDetectionLoss` inherits from Ultralytics' `v8DetectionLoss`.
-* The **classification loss** is replaced with `FocalLoss`, while **box** and **DFL** losses remain unchanged.
+* The **classification loss** is replaced with `FocalLoss`, while **box** and **DFL** losses remain unchanged:
+    * Crete target tensor with zeros;
+    * Place foreground target scores;
+    * Call FocalLoss from original Ultralytics implementation;
+    * Divide by `target_scores_sum` to normalize.
+
+```python
+if self.nc > 1:  # cls loss (only if multiple classes)
+    # Prepare targets for focal loss
+    t = torch.zeros_like(pred_scores, dtype=dtype, device=self.device)
+    if fg_mask.sum():
+        t[fg_mask] = target_scores[fg_mask].to(dtype)
+
+    # Use focal loss instead BCE
+    loss[1] = self.focal_loss(pred_scores, t) / target_scores_sum
+```
+
 * `CustomModel` ensures proper initialization of the loss with the given parameters.
+  Extend `DetectionModel` with gamma and alpha for FocalLoss initialization from yaml configuration.
 * `CustomTrainer` plugs into the Ultralytics training pipeline, managing overrides and validation.
+  Extend `DetectionTrainer` with proper parameters initialization which support overrides from arguments or yaml config
+  and DDP/resume and run reproducibility.
 
 ---
 
