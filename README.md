@@ -36,8 +36,10 @@ yolo-focal-loss/
 ### 1. Install dependencies
 
 ```bash
-pip install ultralytics torch
-````
+pip install -r requirements.txt
+```
+
+Tested on the specified versions, for other versions see changes in original documentation.
 
 ### 2. Import and train with `CustomTrainer`
 
