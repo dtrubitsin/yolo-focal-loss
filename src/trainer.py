@@ -5,9 +5,10 @@ that integrate Focal Loss for improved handling of class imbalance in object
 detection tasks.
 """
 
-from copy import copy
+from types import SimpleNamespace
 from typing import Any
 
+from ultralytics.cfg import DEFAULT_CFG_DICT
 from ultralytics.models.yolo.detect import DetectionTrainer, DetectionValidator
 from ultralytics.nn.tasks import DetectionModel
 from ultralytics.utils import DEFAULT_CFG, LOGGER, RANK
@@ -131,10 +132,26 @@ class CustomTrainer(DetectionTrainer):
             model.load(weights)
         return model
 
+    @staticmethod
+    def _filter_args(ns: SimpleNamespace) -> SimpleNamespace:
+        """Filter out custom fields in SimpleNamespace.
+
+        This method creates a new SimpleNamespace instance with only default
+        cfg keys keeping given values to them.
+
+        Args:
+            ns (SimpleNamespace): Model configuration namespace with custom fields.
+
+        Returns:
+            SimpleNamespace: A new SimpleNamespace instance with only default fields.
+        """
+        allowed = set(DEFAULT_CFG_DICT.keys())
+        return SimpleNamespace(**{k: getattr(ns, k) for k in allowed if hasattr(ns, k)})
+
     def get_validator(self):
         """Get a DetectionValidator for YOLO model validation.
 
-        This method creates a validator instance and removes Focal Loss specific
+        This method creates a validator instance and removes any custom
         parameters from the configuration to ensure compatibility with the
         standard cfg validation process.
 
@@ -143,15 +160,10 @@ class CustomTrainer(DetectionTrainer):
                 the current test data loader and training arguments.
         """
         self.loss_names = "box_loss", "cls_loss", "dfl_loss"
-        args = copy(self.args)
-
-        # Remove unknown keys from cfg
-        del args.focal_alpha
-        del args.focal_gamma
 
         return DetectionValidator(
             self.test_loader,
             save_dir=self.save_dir,
-            args=args,
+            args=self._filter_args(self.args),
             _callbacks=self.callbacks,
         )
